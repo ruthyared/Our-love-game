@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ruth + Miki — Our Love Game</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323:wght@400&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:    #0d0f1c;
+    --deep:    #12152a;
+    --panel:   #1a1e35;
+    --red:     #e63946;
+    --gold:    #f4a428;
+    --pink:    #ff6b9d;
+    --lavender:#b8a9f8;
+    --white:   #f0eeff;
+    --dim:     #7a7a9a;
+    --pixel: 'Press Start 2P', monospace;
+    --vt: 'VT323', monospace;
+    --body: 'Inter', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--navy);
+    color: var(--white);
+    font-family: var(--body);
+    overflow-x: hidden;
+  }
+
+  /* ── SCANLINE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.06) 2px,
+      rgba(0,0,0,0.06) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── START SCREEN ── */
+  #start-screen {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2rem;
+    position: relative;
+    background: radial-gradient(ellipse at center, #1a1e40 0%, var(--navy) 70%);
+  }
+
+  .stars {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .star {
+    position: absolute;
+    background: white;
+    border-radius: 50%;
+    animation: twinkle var(--d, 3s) ease-in-out infinite var(--delay, 0s);
+  }
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.2; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.3); }
+  }
+
+  .achievement-badge {
+    background: var(--panel);
+    border: 2px solid var(--gold);
+    padding: 0.5rem 1.2rem;
+    font-family: var(--pixel);
+    font-size: 0.45rem;
+    color: var(--gold);
+    letter-spacing: 0.05em;
+    margin-bottom: 2.5rem;
+    position: relative;
+    animation: slideDown 0.6s ease 0.3s both;
+  }
+  .achievement-badge::before {
+    content: '🏆';
+    margin-right: 0.5rem;
+  }
+
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .title-names {
+    font-family: var(--pixel);
+    font-size: clamp(1.4rem, 5vw, 2.8rem);
+    color: var(--white);
+    line-height: 1.6;
+    animation: fadeIn 0.8s ease 0.6s both;
+  }
+  .title-names span.heart-plus {
+    color: var(--pink);
+    display: block;
+    font-size: 0.6em;
+    margin: 0.4rem 0;
+  }
+
+  .subtitle {
+    font-family: var(--vt);
+    font-size: clamp(1.1rem, 3vw, 1.6rem);
+    color: var(--lavender);
+    margin-top: 1.2rem;
+    letter-spacing: 0.08em;
+    animation: fadeIn 0.8s ease 0.9s both;
+  }
+
+  .press-start {
+    margin-top: 3rem;
+    font-family: var(--pixel);
+    font-size: clamp(0.5rem, 2vw, 0.75rem);
+    color: var(--pink);
+    animation: blink 1.1s step-end infinite, fadeIn 0.5s ease 1.3s both;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 1rem 2rem;
+    letter-spacing: 0.05em;
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .pixel-hearts {
+    margin-top: 2rem;
+    font-size: 1.5rem;
+    animation: fadeIn 0.5s ease 1.5s both;
+    letter-spacing: 0.4rem;
+  }
+
+  /* ── GAME WORLD (hidden until start) ── */
+  #game-world {
+    display: none;
+  }
+  #game-world.visible {
+    display: block;
+  }
+
+  /* ── HUD BAR ── */
+  .hud {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    background: rgba(13,15,28,0.95);
+    border-bottom: 1px solid rgba(184,169,248,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 1.5rem;
+    z-index: 100;
+    font-family: var(--pixel);
+    font-size: 0.45rem;
+    backdrop-filter: blur(6px);
+  }
+  .hud-lives { color: var(--red); letter-spacing: 0.1em; }
+  .hud-score { color: var(--gold); }
+  .hud-level { color: var(--lavender); }
+
+  /* ── LEVEL SECTION BASE ── */
+  .level {
+    min-height: 100vh;
+    padding: 5rem 1.5rem 4rem;
+    max-width: 860px;
+    margin: 0 auto;
+    opacity: 0;
+    transform: translateY(40px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+  }
+  .level.revealed {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .level-tag {
+    font-family: var(--pixel);
+    font-size: 0.5rem;
+    color: var(--dim);
+    letter-spacing: 0.1em;
+    margin-bottom: 0.8rem;
+  }
+  .level-tag span {
+    color: var(--lavender);
+  }
+
+  .level-title {
+    font-family: var(--pixel);
+    font-size: clamp(0.9rem, 3vw, 1.4rem);
+    color: var(--white);
+    margin-bottom: 2rem;
+    line-height: 1.7;
+  }
+
+  /* ── LEVEL 1: HOW WE STARTED ── */
+  #level1 { border-left: 3px solid var(--lavender); padding-left: 2.5rem; }
+  #level1 .level-title { color: var(--lavender); }
+
+  .story-card {
+    background: var(--panel);
+    border: 1px solid rgba(184,169,248,0.2);
+    border-radius: 4px;
+    padding: 2rem;
+    font-size: 1.05rem;
+    line-height: 1.9;
+    color: #ccc8ee;
+    position: relative;
+  }
+  .story-card::before {
+    content: '▶';
+    position: absolute;
+    top: 1.2rem; left: -1.5rem;
+    color: var(--lavender);
+    font-size: 0.7rem;
+  }
+
+  /* ── LEVEL 2: MEMORIES ── */
+  #level2 .level-title { color: var(--pink); }
+
+  .photo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1.2rem;
+    margin-top: 1rem;
+  }
+
+  .photo-card {
+    background: var(--panel);
+    border: 1px solid rgba(255,107,157,0.2);
+    border-radius: 3px;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .photo-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--pink);
+  }
+  .photo-slot {
+    width: 100%;
+    aspect-ratio: 4/3;
+    background: #1e2240;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--pixel);
+    font-size: 0.38rem;
+    color: var(--dim);
+    text-align: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: background 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .photo-slot:hover { background: #252850; }
+  .photo-slot img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: absolute;
+    inset: 0;
+  }
+  .photo-slot .upload-hint {
+    position: relative;
+    z-index: 1;
+    pointer-events: none;
+  }
+  .photo-slot input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 2;
+  }
+  .photo-caption {
+    padding: 0.75rem 1rem;
+    font-family: var(--vt);
+    font-size: 1.1rem;
+    color: var(--white);
+    letter-spacing: 0.02em;
+    border-top: 1px solid rgba(255,107,157,0.15);
+  }
+  .photo-caption em {
+    display: block;
+    font-style: normal;
+    font-size: 0.85rem;
+    color: var(--dim);
+    margin-top: 0.15rem;
+  }
+
+  /* ── LEVEL 3: THINGS I LOVE ── */
+  #level3 .level-title { color: var(--gold); }
+
+  .love-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0.9rem;
+    margin-top: 0.5rem;
+  }
+  .love-card {
+    background: var(--panel);
+    border: 1px solid rgba(244,164,40,0.2);
+    border-radius: 3px;
+    padding: 1.2rem 1rem;
+    text-align: center;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .love-card:hover {
+    border-color: var(--gold);
+    transform: scale(1.03);
+  }
+  .love-icon {
+    font-size: 1.8rem;
+    margin-bottom: 0.6rem;
+    display: block;
+  }
+  .love-text {
+    font-family: var(--vt);
+    font-size: 1.15rem;
+    color: var(--white);
+    line-height: 1.4;
+    letter-spacing: 0.02em;
+  }
+
+  /* ── LEVEL 4: OUR FUTURE ── */
+  #level4 .level-title { color: #63e6be; }
+
+  .future-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+  .future-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+    background: var(--panel);
+    border-left: 3px solid #63e6be;
+    padding: 0.9rem 1.2rem;
+    font-family: var(--vt);
+    font-size: 1.25rem;
+    color: #c8f5eb;
+    letter-spacing: 0.02em;
+    line-height: 1.5;
+    border-radius: 0 3px 3px 0;
+    transition: border-color 0.2s;
+  }
+  .future-list li:hover { border-color: #a8f0dc; }
+  .future-list li .fi { font-size: 1.3rem; flex-shrink: 0; margin-top: 0.05rem; }
+
+  /* ── BOSS LEVEL ── */
+  #level5 {
+    text-align: center;
+    padding-top: 6rem;
+  }
+  #level5 .level-title { color: var(--red); }
+
+  .boss-container {
+    position: relative;
+    display: inline-block;
+    margin: 2rem auto;
+  }
+
+  .jersey-reveal {
+    background: linear-gradient(135deg, #1a0a0a, #2d0f0f);
+    border: 2px solid var(--red);
+    border-radius: 6px;
+    padding: 3rem 2rem;
+    max-width: 420px;
+    margin: 0 auto;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 0 40px rgba(230,57,70,0.3);
+  }
+  .jersey-reveal::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 10px,
+      rgba(230,57,70,0.04) 10px,
+      rgba(230,57,70,0.04) 20px
+    );
+  }
+  .jersey-emoji {
+    font-size: 5rem;
+    display: block;
+    margin-bottom: 1.2rem;
+    animation: bounce 1.4s ease infinite;
+  }
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  .jersey-title {
+    font-family: var(--pixel);
+    font-size: clamp(0.5rem, 2vw, 0.7rem);
+    color: var(--red);
+    line-height: 2;
+    margin-bottom: 0.5rem;
+  }
+  .jersey-subtitle {
+    font-family: var(--vt);
+    font-size: 1.4rem;
+    color: var(--gold);
+    letter-spacing: 0.06em;
+  }
+  .kit-badge {
+    display: inline-block;
+    background: var(--red);
+    color: white;
+    font-family: var(--pixel);
+    font-size: 0.4rem;
+    padding: 0.4rem 0.8rem;
+    margin-top: 1.5rem;
+    letter-spacing: 0.06em;
+    animation: glowPulse 2s ease-in-out infinite;
+  }
+  @keyframes glowPulse {
+    0%, 100% { box-shadow: 0 0 8px rgba(230,57,70,0.6); }
+    50% { box-shadow: 0 0 20px rgba(230,57,70,1); }
+  }
+
+  /* ── ENDING SCREEN ── */
+  #ending {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 3rem 1.5rem;
+    background: radial-gradient(ellipse at center, #16103a 0%, var(--navy) 70%);
+  }
+
+  .credits-roll {
+    font-family: var(--pixel);
+    font-size: 0.38rem;
+    color: var(--dim);
+    letter-spacing: 0.08em;
+    margin-bottom: 2.5rem;
+    animation: fadeIn 1s ease;
+  }
+
+  .year-complete {
+    font-family: var(--pixel);
+    font-size: clamp(0.8rem, 3.5vw, 1.6rem);
+    color: var(--gold);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+    animation: fadeIn 0.8s ease 0.4s both;
+  }
+
+  .year-sub {
+    font-family: var(--vt);
+    font-size: clamp(1.2rem, 3vw, 1.8rem);
+    color: var(--lavender);
+    margin-bottom: 3rem;
+    animation: fadeIn 0.8s ease 0.8s both;
+    letter-spacing: 0.04em;
+  }
+
+  .continue-btn {
+    font-family: var(--pixel);
+    font-size: clamp(0.45rem, 1.5vw, 0.65rem);
+    color: var(--navy);
+    background: var(--pink);
+    border: none;
+    padding: 1rem 2.2rem;
+    cursor: pointer;
+    letter-spacing: 0.06em;
+    border-radius: 2px;
+    animation: fadeIn 0.8s ease 1.2s both, glowPink 2s ease-in-out 2s infinite;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .continue-btn:hover {
+    background: #ff4d90;
+    transform: scale(1.04);
+  }
+  @keyframes glowPink {
+    0%, 100% { box-shadow: 0 0 10px rgba(255,107,157,0.5); }
+    50% { box-shadow: 0 0 25px rgba(255,107,157,0.9); }
+  }
+
+  .ending-hearts {
+    margin-top: 2.5rem;
+    font-size: 1.4rem;
+    letter-spacing: 0.5rem;
+    animation: fadeIn 0.8s ease 1.6s both;
+  }
+
+  /* ── DIVIDER ── */
+  .level-divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem 0;
+    max-width: 860px;
+    margin: 0 auto;
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+  .level-divider.revealed { opacity: 1; }
+  .level-divider::before, .level-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(184,169,248,0.15);
+  }
+  .level-divider span {
+    font-family: var(--pixel);
+    font-size: 0.38rem;
+    color: rgba(184,169,248,0.3);
+    letter-spacing: 0.1em;
+    white-space: nowrap;
+  }
+
+  /* ── TRANSITION FLASH ── */
+  .flash-overlay {
+    position: fixed;
+    inset: 0;
+    background: white;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 9998;
+    transition: opacity 0.1s;
+  }
+  .flash-overlay.active { opacity: 1; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 600px) {
+    .love-grid { grid-template-columns: repeat(2, 1fr); }
+    .photo-grid { grid-template-columns: 1fr 1fr; }
+    .hud { font-size: 0.38rem; padding: 0.5rem 1rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="flash-overlay" id="flash"></div>
+
+<!-- ══════════════════════════════════════════
+     START SCREEN
+══════════════════════════════════════════ -->
+<section id="start-screen">
+  <div class="stars" id="stars"></div>
+
+  <div class="achievement-badge">ACHIEVEMENT UNLOCKED: 1 YEAR TOGETHER</div>
+
+  <div class="title-names">
+    RUTH
+    <span class="heart-plus">❤️</span>
+    MIKI
+  </div>
+
+  <p class="subtitle">A Love Story. Played Together.</p>
+
+  <button class="press-start" id="startBtn" onclick="startGame()">
+    ❤️ &nbsp; PRESS START &nbsp; ❤️
+  </button>
+
+  <div class="pixel-hearts">♥ ♥ ♥ ♥ ♥</div>
+</section>
+
+<!-- ══════════════════════════════════════════
+     GAME WORLD
+══════════════════════════════════════════ -->
+<div id="game-world">
+
+  <!-- HUD -->
+  <nav class="hud">
+    <div class="hud-lives">♥ ♥ ♥ &nbsp; LIVES: ∞</div>
+    <div class="hud-level" id="hudLevel">LEVEL 1</div>
+    <div class="hud-score">SCORE: <span id="hudScore">0</span></div>
+  </nav>
+
+  <!-- ── LEVEL 1 ── -->
+  <section class="level" id="level1" data-level="1">
+    <p class="level-tag">LEVEL <span>01</span> &nbsp;▸&nbsp; ORIGIN STORY</p>
+    <h2 class="level-title">❤️ The Beginning</h2>
+
+    <div class="story-card">
+      <p>
+        Every great adventure has a beginning, and ours started with a simple conversation that slowly grew into something much bigger.
+      </p>
+      <br>
+      <p>
+        I never expected that one person could become such an important part of my life, but somehow you did. You became the person I looked forward to talking to every day, the one who could make me smile without even trying, and the one who made ordinary moments feel special.
+      </p>
+      <br>
+      <p>
+        As time passed, we laughed together, learned more about each other, and built a relationship filled with trust, patience, and so many unforgettable memories. Somewhere along the way, you stopped being just someone I cared about; you became my best friend and the person I wanted by my side.
+      </p>
+      <br>
+      <p>
+        Looking back now, I'm so grateful that our paths crossed. If I could go back and choose again, I'd still choose you every single time.
+      </p>
+      <br>
+      <p style="color: var(--lavender);">
+        And this is only the beginning of our story.
+      </p>
+      <br>
+      <p style="color: var(--gold); font-family: var(--vt); font-size: 1.2rem; letter-spacing: 0.04em;">
+        ✦ &nbsp; Mission Complete: ❤️ Found My Favorite Person.
+      </p>
+    </div>
+  </section>
+
+  <div class="level-divider" id="div1"><span>✦ CHECKPOINT REACHED ✦</span></div>
+
+  <!-- ── LEVEL 2 ── -->
+  <section class="level" id="level2" data-level="2">
+    <p class="level-tag">LEVEL <span>02</span> &nbsp;▸&nbsp; MEMORY BANK</p>
+    <h2 class="level-title">Favorite Memories</h2>
+
+    <div class="photo-grid" id="photoGrid">
+      <!-- Photo cards generated by JS -->
+    </div>
+  </section>
+
+  <div class="level-divider" id="div2"><span>✦ CHECKPOINT REACHED ✦</span></div>
+
+  <!-- ── LEVEL 3 ── -->
+  <section class="level" id="level3" data-level="3">
+    <p class="level-tag">LEVEL <span>03</span> &nbsp;▸&nbsp; POWER-UPS</p>
+    <h2 class="level-title">Things I Love About You</h2>
+
+    <div class="love-grid" id="loveGrid"></div>
+  </section>
+
+  <div class="level-divider" id="div3"><span>✦ CHECKPOINT REACHED ✦</span></div>
+
+  <!-- ── LEVEL 4 ── -->
+  <section class="level" id="level4" data-level="4">
+    <p class="level-tag">LEVEL <span>04</span> &nbsp;▸&nbsp; NEXT WORLD</p>
+    <h2 class="level-title">Our Future</h2>
+
+    <ul class="future-list" id="futureList"></ul>
+  </section>
+
+  <div class="level-divider" id="div4"><span>✦ FINAL BOSS AHEAD ✦</span></div>
+
+  <!-- ── LEVEL 5: BOSS ── -->
+  <section class="level" id="level5" data-level="5">
+    <p class="level-tag">LEVEL <span>05</span> &nbsp;▸&nbsp; BOSS REWARD</p>
+    <h2 class="level-title">You Earned This ⚔️</h2>
+
+    <div class="jersey-reveal">
+      <span class="jersey-emoji">👕</span>
+      <p class="jersey-title">OFFICIAL KIT UNLOCKED</p>
+      <p class="jersey-subtitle">Your Arsenal jersey is ready.</p>
+      <br>
+      <p style="font-family: var(--body); font-size: 0.95rem; color: #ccc8ee; line-height: 1.7; position: relative; z-index: 1;">
+        Because you've supported me through every match life threw at us —
+        it was time I got you a kit of your own.
+        Wear it like the champion you are.
+      </p>
+      <div class="kit-badge">❤️ YOUR OFFICIAL KIT IS READY ❤️</div>
+    </div>
+  </section>
+
+  <!-- ── ENDING ── -->
+  <section id="ending">
+    <p class="credits-roll">— YEAR ONE COMPLETE —</p>
+    <h2 class="year-complete">YEAR 1&nbsp; COMPLETE.</h2>
+    <p class="year-sub">Ready for Year 2?</p>
+    <button class="continue-btn">Continue with me →</button>
+    <div class="ending-hearts">♥ ♥ ♥ ♥ ♥</div>
+  </section>
+
+</div><!-- /game-world -->
+
+<script>
+  // ── STARS ──
+  const starsEl = document.getElementById('stars');
+  for (let i = 0; i < 80; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = Math.random() * 2.5 + 0.5;
+    s.style.cssText = `
+      width:${size}px; height:${size}px;
+      top:${Math.random()*100}%; left:${Math.random()*100}%;
+      --d:${(Math.random()*4+2).toFixed(1)}s;
+      --delay:${(Math.random()*4).toFixed(1)}s;
+    `;
+    starsEl.appendChild(s);
+  }
+
+  // ── PHOTO DATA (fill in your own captions / swap src) ──
+  const photos = [
+    { caption: "The beginning of everything",  hint: "UPLOAD PHOTO 1" },
+    { caption: "That day I'll never forget",    hint: "UPLOAD PHOTO 2" },
+    { caption: "Us, just being us",             hint: "UPLOAD PHOTO 3" },
+    { caption: "My favorite smile",             hint: "UPLOAD PHOTO 4" },
+    { caption: "Adventure mode: activated",     hint: "UPLOAD PHOTO 5" },
+    { caption: "Home is wherever you are",      hint: "UPLOAD PHOTO 6" },
+  ];
+
+  // ── LOVE CARDS ──
+  const loves = [
+    { icon: "🕊️", text: "Your patience with me" },
+    { icon: "😂", text: "Your laugh" },
+    { icon: "🛡️", text: "How safe you make me feel" },
+    { icon: "🫂", text: "How you show up for me" },
+    { icon: "✨", text: "How you make ordinary days special" },
+    { icon: "🧠", text: "How smart and thoughtful you are" },
+    { icon: "💬", text: "How easy it is to talk to you" },
+    { icon: "🎯", text: "Your ambition" },
+    { icon: "🌙", text: "Late nights talking about everything" },
+    { icon: "💪", text: "How strong you are" },
+  ];
+
+  // ── FUTURE LIST ──
+  const futures = [
+    { icon: "🗺️", text: "Exploring new places together — a real trip, just us" },
+    { icon: "🍝", text: "More late-night food runs and random drives" },
+    { icon: "🏠", text: "Building a space that feels like ours" },
+    { icon: "⚽", text: "Watching Arsenal win it — in your kit" },
+    { icon: "📸", text: "Filling up a photo album with memories we haven't made yet" },
+    { icon: "🌱", text: "Growing together, through every season" },
+  ];
+
+  // ── SCORE ──
+  let score = 0;
+  function addScore(n) {
+    score += n;
+    document.getElementById('hudScore').textContent = score;
+  }
+
+  // ── BUILD PHOTO GRID ──
+  function buildPhotos() {
+    const grid = document.getElementById('photoGrid');
+    photos.forEach((p, i) => {
+      const card = document.createElement('div');
+      card.className = 'photo-card';
+      card.innerHTML = `
+        <div class="photo-slot" id="slot-${i}">
+          <input type="file" accept="image/*" onchange="loadPhoto(event, ${i})" title="Upload photo">
+          <div class="upload-hint">
+            <div style="font-size:1.8rem; margin-bottom:0.4rem;">📷</div>
+            <div>${p.hint}</div>
+            <div style="color:rgba(255,255,255,0.3); margin-top:0.3rem; font-size:0.32rem;">tap to upload</div>
+          </div>
+        </div>
+        <div class="photo-caption">${p.caption}</div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  function loadPhoto(e, idx) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const slot = document.getElementById(`slot-${idx}`);
+    let img = slot.querySelector('img');
+    if (!img) {
+      img = document.createElement('img');
+      slot.appendChild(img);
+    }
+    img.src = url;
+    const hint = slot.querySelector('.upload-hint');
+    if (hint) hint.style.opacity = '0';
+    addScore(100);
+  }
+
+  // ── BUILD LOVE GRID ──
+  function buildLoves() {
+    const grid = document.getElementById('loveGrid');
+    loves.forEach(l => {
+      const card = document.createElement('div');
+      card.className = 'love-card';
+      card.innerHTML = `<span class="love-icon">${l.icon}</span><p class="love-text">${l.text}</p>`;
+      grid.appendChild(card);
+    });
+  }
+
+  // ── BUILD FUTURE LIST ──
+  function buildFutures() {
+    const list = document.getElementById('futureList');
+    futures.forEach(f => {
+      const li = document.createElement('li');
+      li.innerHTML = `<span class="fi">${f.icon}</span><span>${f.text}</span>`;
+      list.appendChild(li);
+    });
+  }
+
+  // ── START GAME ──
+  function startGame() {
+    const flash = document.getElementById('flash');
+    flash.classList.add('active');
+    setTimeout(() => {
+      document.getElementById('start-screen').style.display = 'none';
+      document.getElementById('game-world').classList.add('visible');
+      flash.classList.remove('active');
+      window.scrollTo(0, 0);
+      setTimeout(() => revealOnScroll(), 100);
+    }, 200);
+  }
+
+  // ── SCROLL REVEAL ──
+  function revealOnScroll() {
+    const levels    = document.querySelectorAll('.level');
+    const dividers  = document.querySelectorAll('.level-divider');
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('revealed');
+
+          // Update HUD level
+          const lvNum = entry.target.dataset.level;
+          if (lvNum) {
+            document.getElementById('hudLevel').textContent = `LEVEL ${lvNum}`;
+            addScore(500);
+          }
+        }
+      });
+    }, { threshold: 0.15 });
+
+    levels.forEach(l => observer.observe(l));
+    dividers.forEach(d => observer.observe(d));
+
+    // Ending screen
+    const ending = document.getElementById('ending');
+    const endObs = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        document.getElementById('hudLevel').textContent = 'COMPLETE!';
+        addScore(9999);
+      }
+    }, { threshold: 0.3 });
+    endObs.observe(ending);
+  }
+
+  // ── INIT ──
+  buildPhotos();
+  buildLoves();
+  buildFutures();
+</script>
+</body>
+</html>
